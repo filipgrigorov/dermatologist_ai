@@ -1,8 +1,11 @@
+import cv2
 import json
+import multiprocessing as mp
 import numpy as np
 import os
 
 import torch
+import torchvision.transforms as transforms
 
 from torch.utils.data import Dataset, DataLoader
 
@@ -18,7 +21,7 @@ classes = [
     'seborrheic_keratosis'
 ]
 
-means = [ 123.68, 116.779, 103.939 ]
+means = [ 0.5, 0.5, 0.5 ]
 stds = [ 0.5, 0.5, 0.5 ]
 
 def find_stats_of_images(root):
@@ -45,31 +48,43 @@ def find_stats_of_images(root):
             json.dump(json_data, fh)
 
 # Augmentations
-def Normalize(data_pair):
-    data_pair[0] /= 255
+class Normalize:
+    def __init__():
+        pass
 
-    data_pair[0][0] -= means[0]
-    data_pair[0][1] -= means[1]
-    data_pair[0][2] -= means[2]
+    def __call__(self, data_pair):
+        data_pair[0] /= 255
 
-    data_pair[0][0] /= stds[0]
-    data_pair[0][1] /= stds[1]
-    data_pair[0][2] /= stds[2]
+        data_pair[0][0] -= means[0]
+        data_pair[0][1] -= means[1]
+        data_pair[0][2] -= means[2]
 
-    return data_pair
+        data_pair[0][0] /= stds[0]
+        data_pair[0][1] /= stds[1]
+        data_pair[0][2] /= stds[2]
 
-def RandomBrightness(data_pair, range_vals):
-    random_number = np.random.random() * range_vals[1] / range_vales[0]  # [0, max]
-    data_pair[0] *= np.clip(random_number, a_min=0, a_max=255)
+        return data_pair
 
-def ToTensor(data_pair):
-    data_pair[0] = data_pair[0].transpose(2, 0, 1)
-    data_pair[0] = torch.from_numpy(data_pair[0]).float()
-    data_pair[1] = torch.from_numpy(data_pair[1]).float()
-    return data_pair
+class RandomBrightness:
+    def __init__(self, range_vals):
+        self.range_vals = range_vals
+
+    def __call__(self, data_pair):
+        random_number = np.random.random() * self.range_vals[1] / self.range_vales[0]  # [0, max]
+        data_pair[0] *= np.clip(random_number, a_min=0, a_max=255)
+
+class ToTensor:
+    def __init__(self):
+        pass
+
+    def __call__(self, data_pair):
+        data_pair[0] = data_pair[0].transpose(2, 0, 1)
+        data_pair[0] = torch.from_numpy(data_pair[0]).float()
+        data_pair[1] = data_pair[1]
+        return data_pair
 
 class DermatologistDataset(Dataset):
-    def __init__(self, root, transform):
+    def __init__(self, root, transforms):
         self.transform = transform
         self.image_paths = []
 
@@ -97,3 +112,25 @@ class DermatologistDataset(Dataset):
     def __len__(self):
         return len(self.image_paths)
 
+if __name__ == '__main__':
+    transform = transforms.Compose([
+        ToTensor()
+    ])
+
+    dataset = DermatologistDataset(root='data/train/', transforms=transform)
+    dataloader = DataLoader(dataset=dataset, batch_size=1, shuffle=True, num_workers=int(mp.cpu_count() * 0.8))
+
+    print('DataLoader type: ', type(dataloader))
+    data = next(iter(dataloader))
+
+    img_tensor = data[0]
+    lbl = data[1]
+
+    #Move back to numpy (HWC) from (BCHW)
+    rgb = img_tensor.squeeze(0).numpy().transpose(1, 2, 0).astype(np.uint8)
+
+    cv2.imshow(classes[lbl], cv2.resize(cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR), (648, 480)))
+
+    while cv2.waitKey(1) & 0xff != ord('q'):
+        continue
+    cv2.destroyAllWindows()
