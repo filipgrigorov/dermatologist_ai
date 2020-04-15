@@ -18,7 +18,7 @@ def print_learnable_parameters(net):
     print('Learnable parameters: ', count)
 
 class DermatologistNet(nn.Module):
-    def __init__(self, noutputs):
+    def __init__(self, noutputs, is_debug=False):
         super(DermatologistNet, self).__init__()
         self.inceptionv3 = models.inception_v3(pretrained=True, progress=True)
 
@@ -30,7 +30,7 @@ class DermatologistNet(nn.Module):
 
         self.input_size = 299
 
-        if __debug__:
+        if is_debug:
             print(self.inceptionv3)
 
     def forward(self, x):
