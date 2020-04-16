@@ -49,9 +49,6 @@ def find_stats_of_images(root):
 
 # Augmentations
 class Normalize:
-    def __init__():
-        pass
-
     def __call__(self, data_pair):
         data_pair[0] /= 255
 
@@ -73,10 +70,15 @@ class RandomBrightness:
         random_number = np.random.random() * self.range_vals[1] / self.range_vales[0]  # [0, max]
         data_pair[0] *= np.clip(random_number, a_min=0, a_max=255)
 
-class ToTensor:
-    def __init__(self):
-        pass
+class Resize:
+    def __init__(self, size):
+        self.size = size
 
+    def __call__(self, data_pair):
+        data_pair[0] = cv2.resize(data_pair[0], self.size)
+        return data_pair
+
+class ToTensor:
     def __call__(self, data_pair):
         data_pair[0] = data_pair[0].transpose(2, 0, 1)
         data_pair[0] = torch.from_numpy(data_pair[0]).float()
@@ -85,7 +87,7 @@ class ToTensor:
 
 class DermatologistDataset(Dataset):
     def __init__(self, root, transforms):
-        self.transform = transform
+        self.transform = transforms
         self.image_paths = []
 
         for root, dirs, files in os.walk(root):
@@ -97,7 +99,7 @@ class DermatologistDataset(Dataset):
         lbl = classes.index(self.image_paths[idx][0])
         rgb = cv2.cvtColor(
             cv2.imread(self.image_paths[idx][1]), 
-            cv2.COLOR_BGR2RGB).astype(np.uint8)
+            cv2.COLOR_BGR2RGB).astype(np.float32)
 
         data_pair = [rgb, lbl]
 
